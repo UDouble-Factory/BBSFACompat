@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "bbsfacompat",
+  "version": "${version}",
+  "name": "BBSFACompat",
+  "description": "",
+  "authors": [],
+  "contact": {},
+  "license": "MIT",
+  "icon": "assets/bbsfacompat/icon.png",
+  "environment": "*",
+  "entrypoints": {
+    "client": [
+      "io.mr_w98.bbsfacompat.client.BBSFACompatClient"
+    ],
+    "main": [
+      "io.mr_w98.bbsfacompat.BBSFACompat"
+    ]
+  },
+  "mixins": [
+    "bbsfacompat.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=${loader_version}",
+    "fabric-api": "*",
+    "minecraft": "${minecraft_version}"
+  }
+}
