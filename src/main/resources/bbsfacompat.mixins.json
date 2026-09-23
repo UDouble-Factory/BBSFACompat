@@ -6,6 +6,12 @@
   "mixins": [
   ],
   "client": [
+    "CemSourcePackMixin",
+    "JemModelParserMixin",
+    "CemAnimationMixin",
+    "ModelFormMixin",
+    "ModelFormRendererMixin",
+    "UIModelFormPanelMixin"
   ],
   "injectors": {
     "defaultRequire": 1

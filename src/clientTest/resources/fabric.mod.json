@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "bbsfacompat_client_test",
+  "version": "1.0.0",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["io.mr_w98.bbsfacompat.ClientIntegrationTest"]
+  },
+  "depends": {
+    "bbsfacompat": "*"
+  }
+}

@@ -3,26 +3,19 @@
   "id": "bbsfacompat",
   "version": "${version}",
   "name": "BBSFACompat",
-  "description": "",
+  "description": "FA Player resource pack animations in BBS, with editable animation layers.",
   "authors": [],
   "contact": {},
   "license": "MIT",
-  "icon": "assets/bbsfacompat/icon.png",
-  "environment": "*",
-  "entrypoints": {
-    "client": [
-      "io.mr_w98.bbsfacompat.client.BBSFACompatClient"
-    ],
-    "main": [
-      "io.mr_w98.bbsfacompat.BBSFACompat"
-    ]
-  },
+  "environment": "client",
   "mixins": [
     "bbsfacompat.mixins.json"
   ],
   "depends": {
     "fabricloader": ">=${loader_version}",
     "fabric-api": "*",
-    "minecraft": "${minecraft_version}"
+    "minecraft": "${minecraft_version}",
+    "java": ">=21",
+    "bbs": "=${bbs_version}"
   }
 }
