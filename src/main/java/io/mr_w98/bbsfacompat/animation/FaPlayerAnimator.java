@@ -1,6 +1,8 @@
 package io.mr_w98.bbsfacompat.animation;
 
 import mchorse.bbs_mod.cubic.IModelInstance;
+import mchorse.bbs_mod.cubic.ModelInstance;
+import mchorse.bbs_mod.cubic.animation.ActionsConfig;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.jem.CemAnimator;
 import mchorse.bbs_mod.cubic.jem.CemState;
@@ -20,6 +22,7 @@ public final class FaPlayerAnimator extends CemAnimator {
     private final Map<IEntity, Playback> states = new WeakHashMap<>();
     private final StubEntity preview = new StubEntity();
     private FaControls controls;
+    private IModelInstance armature;
     private boolean firstPerson;
     private double previewTicks;
     private long previewNanos;
@@ -36,7 +39,25 @@ public final class FaPlayerAnimator extends CemAnimator {
     }
 
     @Override
+    public void setup(IModelInstance model, ActionsConfig actions, boolean fade) {
+        this.armature = model;
+    }
+
+    @Override
+    public void update(IEntity entity) {
+        if (entity == null || armature == null) return;
+        Playback playback = states.get(entity);
+        double tick = entity.getAge();
+        if (playback != null && tick >= Math.floor(playback.stamp) && tick - playback.stamp < 1) return;
+
+        armature.getModel().resetPose();
+        evaluate(entity, 0, false, false);
+        if (armature instanceof ModelInstance model) model.clearChannels();
+    }
+
+    @Override
     public void applyActions(IEntity entity, IModelInstance model, float transition) {
+        this.armature = model;
         boolean inGui = entity == null;
         if (inGui) {
             long now = System.nanoTime();
@@ -46,19 +67,24 @@ public final class FaPlayerAnimator extends CemAnimator {
             entity = preview;
             transition = (float) (previewTicks - Math.floor(previewTicks));
         }
-        program.configure(controls, firstPerson);
-        double stamp = entity.getAge() + (double) transition;
-        Playback playback = states.get(entity);
-        if (playback == null || stamp < playback.stamp) {
-            playback = new Playback(program.createState());
-            states.put(entity, playback);
-        }
-        playback.stamp = stamp;
-        program.apply(playback.state, entity, transition, inGui, status, stage.seed(entity, transition));
+        evaluate(entity, transition, inGui, firstPerson);
 
         if (!firstPerson && model.getModel() instanceof mchorse.bbs_mod.cubic.data.model.Model cubic) {
             applyRoot(cubic.getGroup(ROOT), entity, transition);
         }
+    }
+
+    private void evaluate(IEntity entity, float transition, boolean inGui, boolean firstPerson) {
+        program.configure(controls, firstPerson);
+        double stamp = entity.getAge() + (double) transition;
+        Playback playback = states.get(entity);
+        boolean rewind = playback != null && stamp < playback.stamp && (entity.isStandIn() || entity.getAge() < Math.floor(playback.stamp));
+        if (playback == null || rewind) {
+            playback = new Playback(program.createState());
+            states.put(entity, playback);
+        }
+        playback.stamp = Math.max(playback.stamp, stamp);
+        program.apply(playback.state, entity, transition, inGui, status, stage.seed(entity, transition));
     }
 
     static void applyRoot(ModelGroup root, IEntity entity, float transition) {
@@ -92,7 +118,7 @@ public final class FaPlayerAnimator extends CemAnimator {
 
     private static final class Playback {
         private final CemState state;
-        private double stamp;
+        private double stamp = Double.NEGATIVE_INFINITY;
 
         private Playback(CemState state) {
             this.state = state;

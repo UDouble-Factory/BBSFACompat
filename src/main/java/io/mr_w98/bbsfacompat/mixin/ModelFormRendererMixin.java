@@ -38,4 +38,12 @@ public abstract class ModelFormRendererMixin {
             player.configure(((FaControls.Holder) getForm()).bbsfa$controls(), renderingArm);
         }
     }
+
+    @Inject(method = "tick", at = @At(value = "INVOKE", target = "Lmchorse/bbs_mod/cubic/animation/IAnimator;update(Lmchorse/bbs_mod/forms/entities/IEntity;)V"))
+    private void bbsfa$tickContext(IEntity entity, CallbackInfo ci) {
+        if (animator instanceof FaPlayerAnimator player) {
+            player.configure(((FaControls.Holder) getForm()).bbsfa$controls(), false);
+            player.status.read(getForm());
+        }
+    }
 }

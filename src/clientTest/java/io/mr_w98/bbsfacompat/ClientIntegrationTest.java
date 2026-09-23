@@ -12,6 +12,7 @@ import mchorse.bbs_mod.cubic.data.model.Model;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.render.ICubicRenderer;
 import mchorse.bbs_mod.cubic.animation.ItemUsePose;
+import mchorse.bbs_mod.forms.FormUtilsClient;
 import mchorse.bbs_mod.forms.entities.StubEntity;
 import mchorse.bbs_mod.forms.forms.ModelForm;
 import mchorse.bbs_mod.forms.renderers.ModelFormRenderer;
@@ -40,7 +41,7 @@ public final class ClientIntegrationTest implements ClientModInitializer {
             finished = true;
             try {
                 run();
-                Files.writeString(Path.of("result.txt"), "PASS: EMF pack discovery, both player models, runtime mixins, animation state, equipment, layers, pose overlay, serialization, gliding, strafe direction, crouch foot height, creative flight leg lift and lean in four headings\n");
+                Files.writeString(Path.of("result.txt"), "PASS: EMF pack discovery, both player models, runtime mixins, animation state, equipment, layers, pose overlay, serialization, gliding, strafe direction, crouch foot height, creative flight leg lift and lean in four headings, perspective switch continuity\n");
             } catch (Throwable error) {
                 error.printStackTrace();
                 try {
@@ -64,6 +65,7 @@ public final class ClientIntegrationTest implements ClientModInitializer {
             check(cubic.getGroup(FaPlayerAnimator.ROOT) != null, "Missing renderer root");
             movementRegressions(model);
             creativeFlightRegressions(model);
+            perspectiveRegressions(model, "cem/" + name);
             ModelForm form = new ModelForm();
             form.model.set("cem/" + name);
             var controls = ((FaControls.Holder) form).bbsfa$controls();
@@ -148,6 +150,52 @@ public final class ClientIntegrationTest implements ClientModInitializer {
 
     private static double value(ModelInstance model, String name) {
         return model.cemAnimation.parser.getOrCreateVariable(name).doubleValue();
+    }
+
+    private static void perspectiveRegressions(ModelInstance model, String name) {
+        Model cubic = (Model) model.model;
+        ModelForm continuous = new ModelForm();
+        ModelForm switched = new ModelForm();
+        continuous.model.set(name);
+        switched.model.set(name);
+        var continuousRenderer = (ModelFormRenderer) FormUtilsClient.getRenderer(continuous);
+        var switchedRenderer = (ModelFormRenderer) FormUtilsClient.getRenderer(switched);
+        Sample actor = new Sample();
+        actor.standIn = false;
+        actor.moving = true;
+        actor.setFlying(true);
+        actor.setOnGround(false);
+        actor.setVelocity(0.15F, 0, 0);
+
+        for (int tick = 100; tick <= 235; tick++) {
+            actor.setAge(tick);
+            actor.setHeadYaw(tick < 150 ? 30 : 55);
+            actor.setPrevHeadYaw(actor.getHeadYaw());
+            if (tick == 160) {
+                ((FaControls.Holder) continuous).bbsfa$controls().layers.get(FaLayer.FLIGHT).set(0.6F);
+                ((FaControls.Holder) switched).bbsfa$controls().layers.get(FaLayer.FLIGHT).set(0.6F);
+                continuous.cemHealth.set(0.4F);
+                switched.cemHealth.set(0.4F);
+            }
+            continuous.update(actor);
+            continuousRenderer.evaluateChannels(actor, 0.5F);
+            Vector3f head = new Vector3f(cubic.getGroup("head").current.rotate);
+            Vector3f leg = new Vector3f(cubic.getGroup("right_leg").current.rotate);
+
+            switched.update(actor);
+            if (tick >= 160) {
+                check(Math.abs(value(model, "health") - 8) < 0.001, "Hidden animation has stale form status");
+            }
+            boolean visible = tick < 130 || tick >= 200 && tick < 210 || tick >= 225;
+            if (visible) {
+                switchedRenderer.evaluateChannels(actor, 0.5F);
+                if (tick >= 200) {
+                    check(value(model, "var.flying") > 0.99, "Perspective switch restarted flight");
+                    check(head.distance(cubic.getGroup("head").current.rotate) < 0.05, "Head snaps when returning from first person");
+                    check(leg.distance(cubic.getGroup("right_leg").current.rotate) < 0.25, "Leg mismatch at " + tick + ": continuous=" + leg + ", switched=" + cubic.getGroup("right_leg").current.rotate + ", flying=" + value(model, "var.flying"));
+                }
+            }
+        }
     }
 
     private static void movementRegressions(ModelInstance model) {
@@ -279,6 +327,12 @@ public final class ClientIntegrationTest implements ClientModInitializer {
     private static final class Sample extends StubEntity {
         private boolean moving;
         private float sideways;
+        private boolean standIn = true;
+
+        @Override
+        public boolean isStandIn() {
+            return standIn;
+        }
 
         @Override
         public float getSidewaysSpeed() {
