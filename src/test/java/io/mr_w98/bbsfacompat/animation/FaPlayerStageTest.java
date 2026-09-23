@@ -4,6 +4,7 @@ import mchorse.bbs_mod.cubic.animation.ItemUsePose;
 import mchorse.bbs_mod.cubic.data.model.ModelGroup;
 import mchorse.bbs_mod.cubic.jem.CemVanillaSeed;
 import mchorse.bbs_mod.forms.entities.IEntity;
+import mchorse.bbs_mod.forms.entities.MCEntity;
 import net.minecraft.SharedConstants;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
@@ -107,6 +108,94 @@ class FaPlayerStageTest {
         FaPlayerAnimator.applyRoot(root, source, 0.5F);
         Vector3f offset = new Matrix4f().rotateX((float) Math.toRadians(-110)).transformDirection(new Vector3f(0, -16, 4.8F));
         assertVector(offset, new Vector3f(-root.current.translate.x, root.current.translate.y, root.current.translate.z));
+    }
+
+    @Test
+    void liveGliderUsesActualFlightTicksInsteadOfBbsRoll() {
+        LivingEntity living = mock(LivingEntity.class);
+        when(living.getFallFlyingTicks()).thenReturn(20);
+        MCEntity source = mock(MCEntity.class);
+        when(source.getMcEntity()).thenReturn(living);
+        when(source.isFallFlying()).thenReturn(true);
+        when(source.getVelocity()).thenReturn(new Vec3(0, 0, 1));
+        when(source.lerpVelocity(0.5F)).thenReturn(new Vec3(0, 0, 1));
+        when(source.getRotationVec(0.5F)).thenReturn(new Vec3(0, 0, 1));
+        when(source.getEquipmentStack(any())).thenReturn(ItemStack.EMPTY);
+        when(source.isSneaking()).thenReturn(true);
+
+        assertEquals(0, new MCEntity(living).getRoll());
+        ModelGroup root = new ModelGroup(FaPlayerAnimator.ROOT);
+        FaPlayerAnimator.applyRoot(root, source, 0.5F);
+        assertVector(new Vector3f(0, 0, -1), root.current.quat.transform(new Vector3f(0, 1, 0)));
+        assertEquals(-Math.PI / 4, new FaPlayerStage().seed(source, 0.5F).get("head").rx, 1E-6);
+        assertEquals(0, root.current.translate.y);
+        assertEquals(0, new FaPlayerStage().seed(source, 0.5F).get("body").rx);
+
+        when(living.getFallFlyingTicks()).thenReturn(1);
+        root.reset();
+        FaPlayerAnimator.applyRoot(root, source, 0.5F);
+        assertVector(new Matrix4f().rotateX((float) Math.toRadians(-90 * 2.25 / 100)).transformDirection(new Vector3f(0, 1, 0)), root.current.quat.transform(new Vector3f(0, 1, 0)));
+    }
+
+    @Test
+    void crouchingIncludesUnscaledPlayerRenderOffset() {
+        IEntity source = source();
+        when(source.isSneaking()).thenReturn(true);
+        ModelGroup root = new ModelGroup(FaPlayerAnimator.ROOT);
+        FaPlayerAnimator.applyRoot(root, source, 0.5F);
+        assertEquals(-2, root.current.translate.y, 1E-6);
+        assertEquals(0.9375F, root.current.scale.y);
+        assertEquals(0.9375 * 2 - 2, root.current.translate.y + root.current.scale.y * 2, 1E-6);
+
+        when(source.isSneaking()).thenReturn(false);
+        root.reset();
+        FaPlayerAnimator.applyRoot(root, source, 0.5F);
+        assertEquals(0, root.current.translate.y);
+    }
+
+    @Test
+    void movementUsesEmfSignsAndNormalizedWorldVelocity() {
+        IEntity source = source();
+        when(source.getVelocity()).thenReturn(new Vec3(0.15, 0, 0));
+        var left = FaPlayerMotion.direction(source, 0.5F);
+        assertEquals(-1, left.x, 1E-6);
+        assertEquals(0, left.y, 1E-6);
+        when(source.getVelocity()).thenReturn(new Vec3(-0.15, 0, 0));
+        assertEquals(1, FaPlayerMotion.direction(source, 0.5F).x, 1E-6);
+
+        when(source.getVelocity()).thenReturn(new Vec3(-0.15, 0, 0.15));
+        var diagonal = FaPlayerMotion.direction(source, 0.5F);
+        assertEquals(Math.sqrt(0.5), diagonal.x, 1E-6);
+        assertEquals(Math.sqrt(0.5), diagonal.y, 1E-6);
+
+        when(source.getPrevYaw()).thenReturn(90F);
+        when(source.getYaw()).thenReturn(90F);
+        when(source.getVelocity()).thenReturn(new Vec3(-0.15, 0, 0));
+        assertEquals(1, FaPlayerMotion.direction(source, 0.5F).y, 1E-6);
+        assertEquals(0, FaPlayerMotion.direction(source, 0.5F).x, 1E-6);
+    }
+
+    @Test
+    void recordingMovementFallsBackToPositionThenInputs() {
+        IEntity source = source();
+        when(source.getX()).thenReturn(0.2);
+        assertEquals(-1, FaPlayerMotion.direction(source, 0.5F).x, 1E-6);
+        when(source.getX()).thenReturn(0.0);
+        when(source.getSidewaysSpeed()).thenReturn(1F);
+        when(source.getForwardSpeed()).thenReturn(1F);
+        assertEquals(-Math.sqrt(0.5), FaPlayerMotion.direction(source, 0.5F).x, 1E-6);
+        assertEquals(Math.sqrt(0.5), FaPlayerMotion.direction(source, 0.5F).y, 1E-6);
+    }
+
+    @Test
+    void worldRotationTracksBodyWhileHeadLookStaysRelative() {
+        IEntity source = source();
+        when(source.getBodyYaw()).thenReturn(15F);
+        when(source.getPrevBodyYaw()).thenReturn(15F);
+        FaAnimation animation = new FaAnimation();
+        animation.parameters(source, 0.5F);
+        assertEquals(Math.toRadians(15), animation.parser.getOrCreateVariable("rot_y").doubleValue(), 1E-6);
+        assertEquals(20, animation.parser.getOrCreateVariable("head_yaw").doubleValue(), 1E-6);
     }
 
     private static IEntity source() {

@@ -58,7 +58,10 @@ public final class FaAnimation extends CemAnimation {
         float head = Mth.rotLerp(transition, entity.getPrevHeadYaw(), entity.getHeadYaw());
         float body = Mth.rotLerp(transition, entity.getPrevBodyYaw(), entity.getBodyYaw());
         parser.setValue("head_yaw", Mth.wrapDegrees(head - body));
-        parser.setValue("rot_y", Math.toRadians(Mth.rotLerp(transition, entity.getPrevYaw(), entity.getYaw())));
+        parser.setValue("rot_y", Math.toRadians(body));
+        var movement = FaPlayerMotion.direction(entity, transition);
+        parser.setValue("move_forward", movement.y);
+        parser.setValue("move_strafing", movement.x);
         parser.setValue("is_first_person_hand", firstPerson ? 1 : 0);
         parser.setValue("is_paused", 0);
         parser.setValue("is_jumping", (controls != null && controls.jumping.get()) || (!entity.isOnGround() && entity.getY() > entity.getPrevY()) ? 1 : 0);

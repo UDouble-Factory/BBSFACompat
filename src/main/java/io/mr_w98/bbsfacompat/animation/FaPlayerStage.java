@@ -36,7 +36,7 @@ public final class FaPlayerStage implements ICemVanillaStage {
         float phase = entity.isRiding() ? 0 : entity.getLimbPos(transition);
         float speed = entity.isRiding() ? 0 : Math.min(1, entity.getLimbSpeed(transition));
         float age = entity.getAge() + transition;
-        boolean gliding = entity.isFallFlying() && entity.getRoll() > 4;
+        boolean gliding = entity.isFallFlying() && FaPlayerMotion.fallFlyingTicks(entity) > 4;
         boolean swimmingPose = entity.getEntityPose() == Pose.SWIMMING;
         head.ry = yaw;
         head.rx = gliding ? -Mth.PI / 4 : Mth.lerp(swim, pitch, swimmingPose ? -Mth.PI / 4 : pitch);
@@ -63,8 +63,9 @@ public final class FaPlayerStage implements ICemVanillaStage {
         var mainUse = ItemUsePose.get(entity, true);
         var offUse = ItemUsePose.get(entity, false);
         boolean rightHanded = entity.isRightHanded();
+        boolean crouching = FaPlayerMotion.isCrouching(entity);
         VanillaArmPoses.apply(new Bone(rightHanded ? rightArm : leftArm, !rightHanded), new Bone(rightHanded ? leftArm : rightArm, !rightHanded), head.rx, rightHanded ? head.ry : -head.ry,
-            entity.getEquipmentStack(EquipmentSlot.MAINHAND), entity.getEquipmentStack(EquipmentSlot.OFFHAND), mainUse, offUse, entity.isSneaking(), swing > 0);
+            entity.getEquipmentStack(EquipmentSlot.MAINHAND), entity.getEquipmentStack(EquipmentSlot.OFFHAND), mainUse, offUse, crouching, swing > 0);
 
         if (swing > 0) {
             boolean attackRight = rightHanded != entity.isSwingingOffHand();
@@ -84,7 +85,7 @@ public final class FaPlayerStage implements ICemVanillaStage {
             arm.rz += Mth.sin(swing * Mth.PI) * -0.4F;
         }
 
-        if (entity.isSneaking()) {
+        if (crouching) {
             body.rx = 0.5F;
             rightArm.rx += 0.4F;
             leftArm.rx += 0.4F;

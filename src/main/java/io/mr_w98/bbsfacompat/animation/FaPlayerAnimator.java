@@ -68,8 +68,9 @@ public final class FaPlayerAnimator extends CemAnimator {
         root.current.scale.set(0.9375F);
         root.current.rotationMode = Transform.RotationMode.QUATERNION;
         root.current.quat.identity();
+        if (FaPlayerMotion.isCrouching(entity)) root.current.translate.y -= 2;
         if (entity.isFallFlying()) {
-            float ticks = entity.getRoll() + transition;
+            float ticks = FaPlayerMotion.fallFlyingTicks(entity) + transition;
             root.current.quat.rotateX(Mth.clamp(ticks * ticks / 100, 0, 1) * (-90 - pitch) * Mth.DEG_TO_RAD);
             var look = entity.getRotationVec(transition);
             var velocity = entity.lerpVelocity(transition);
